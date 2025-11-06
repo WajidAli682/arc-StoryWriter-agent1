@@ -217,37 +217,32 @@ def connect():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    data = request.json
-    user_message = data.get('message', '').strip().lower()
-    user_wallet = data.get('wallet')  # Frontend se wallet bhejna hoga
-    
-    if not user_message:
-        return jsonify({"reply": "Please tell me what story you'd like to hear! Try: 'about cats', 'space adventure', or 'magical forest'"})
-    
-    if not user_wallet:
-        return jsonify({"reply": "Please connect your wallet first to generate stories!"})
-    
-    print(f"📖 Story request: {user_message}")
-    
-    # Generate story for ANY input (not just 'story' or 'tell')
-    if len(user_message) > 2:  # Any meaningful input
-        full_story = generate_story_with_ai(user_message)
-        teaser = create_teaser(full_story)
-        audio = text_to_speech(teaser, "teaser.mp3")
+    try:
+        data = request.json
+        user_message = data.get('message', '').strip().lower()
+        user_wallet = data.get('wallet')
         
-        # Session mein store karein
-        user_sessions[user_wallet] = {"full_story": full_story}
+        print(f"📖 DEBUG: Chat request received - Message: '{user_message}', Wallet: '{user_wallet}'")
+        
+        if not user_message:
+            return jsonify({"reply": "Please tell me what story you'd like to hear!"})
+        
+        if not user_wallet:
+            return jsonify({"reply": "Please connect your wallet first!"})
+        
+        # Simple test response - AI call ke bina
+        test_story = f"This is a test story about {user_message}. If you can see this, the basic setup is working! The full version will have AI-generated magical stories."
+        teaser = test_story + " 🎧 Tip $0.50 to unlock the full magical story!"
         
         return jsonify({
-            "reply": "✨ Your story teaser is ready!",
+            "reply": "✨ Test successful! Basic setup is working.",
             "written": teaser,
-            "audio": audio,  # Base64 audio
             "canTip": True
         })
-    
-    return jsonify({
-        "reply": "Please enter a story topic! Examples: 'about dragons', 'space adventure', 'magical forest'"
-    })
+        
+    except Exception as e:
+        print(f"❌ ERROR in chat: {str(e)}")
+        return jsonify({"reply": f"Server error: {str(e)}"}), 500
 
 @app.route('/tip', methods=['POST'])
 def tip():
