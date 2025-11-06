@@ -1,36 +1,13 @@
 from flask import Flask, request, jsonify
-import os
-import requests
 import json
 
 app = Flask(__name__)
 
-# Config - Vercel environment variables
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
-AIML_API_KEY = os.getenv("AIML_API_KEY", "")
-
-# In-memory storage
+# Simple in-memory storage
 user_sessions = {}
 
-print("🎭 AI Story Teller Server Started!")
+print("✅ AI Story Teller Server Started!")
 
-# AI Functions
-def generate_story_with_ai(prompt):
-    """Generate engaging story"""
-    try:
-        # Simple story generation for testing
-        story = f"Once upon a time, in a land far away, there was a magical {prompt}. This story was created just for you. The full version with AI and audio will be available soon!"
-        return story
-    except Exception as e:
-        return f"A wonderful story about {prompt} awaits you!"
-
-def create_teaser(full_story):
-    """Create teaser from full story"""
-    teaser = full_story[:120] + "..."
-    teaser += " 🎧 Tip $0.50 to unlock the full magical story!"
-    return teaser
-
-# Routes
 @app.route('/connect', methods=['POST'])
 def connect():
     try:
@@ -40,7 +17,8 @@ def connect():
             
         user_wallet = data.get('wallet', '').strip()
         
-        if user_wallet and len(user_wallet) > 10:  # Basic validation
+        # Basic wallet validation
+        if user_wallet and len(user_wallet) > 10:
             user_sessions[user_wallet] = {"full_story": ""}
             return jsonify({
                 "status": "connected", 
@@ -48,10 +26,12 @@ def connect():
                 "message": "Wallet connected successfully!"
             })
         else:
-            return jsonify({"status": "failed", "error": "Invalid wallet address"}), 400
+            return jsonify({"status": "failed", "error": "Invalid wallet"}), 400
             
     except Exception as e:
-        return jsonify({"status": "failed", "error": str(e)}), 500
+        error_msg = f"Connect error: {str(e)}"
+        print(error_msg)
+        return jsonify({"status": "failed", "error": error_msg}), 500
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -60,47 +40,48 @@ def chat():
         if not data:
             return jsonify({"reply": "No data received"}), 400
             
-        user_message = data.get('message', '').strip().lower()
+        user_message = data.get('message', '').strip()
         user_wallet = data.get('wallet', '')
         
-        print(f"📖 Received: {user_message} from {user_wallet}")
+        print(f"📖 Chat request: {user_message}")
         
         if not user_message:
             return jsonify({"reply": "Please enter a story topic!"})
         
         if not user_wallet:
-            return jsonify({"reply": "Please connect your wallet first!"})
+            return jsonify({"reply": "Please connect wallet first!"})
         
-        # Generate story
-        full_story = generate_story_with_ai(user_message)
-        teaser = create_teaser(full_story)
+        # Generate simple story
+        story = f"✨ Once upon a time, there was a magical {user_message}. This story was created just for you! The full AI-powered version with audio will be available soon."
+        teaser = story[:100] + "... 🎧 Tip $0.50 to unlock full story!"
         
-        # Store in session
-        user_sessions[user_wallet] = {"full_story": full_story}
+        # Store story
+        user_sessions[user_wallet] = {"full_story": story}
         
         return jsonify({
-            "reply": "✨ Your story teaser is ready!",
+            "reply": "Story generated successfully!",
             "written": teaser,
             "canTip": True
         })
         
     except Exception as e:
-        print(f"❌ Chat error: {e}")
-        return jsonify({"reply": "Server error occurred. Please try again."}), 500
+        error_msg = f"Chat error: {str(e)}"
+        print(error_msg)
+        return jsonify({"reply": "Server error. Please try again."}), 500
 
 @app.route('/tip', methods=['POST'])
 def tip():
     try:
         data = request.get_json()
         if not data:
-            return jsonify({"reply": "No data received"}), 400
+            return jsonify({"reply": "No data"}), 400
             
         user_wallet = data.get('wallet', '')
         
         if not user_wallet:
             return jsonify({"reply": "Connect wallet first!"})
         
-        # Simple test transaction
+        # Test transaction data
         test_tx = {
             "from": user_wallet,
             "to": "0x2de592b3951807dfb72931596d11fe93b753881e",
@@ -113,13 +94,15 @@ def tip():
         }
         
         return jsonify({
-            "reply": "Confirm in MetaMask to pay $0.50!",
+            "reply": "Confirm transaction in MetaMask!",
             "tx": test_tx,
             "status": "sign_required"
         })
             
     except Exception as e:
-        return jsonify({"reply": f"Error: {str(e)}"}), 500
+        error_msg = f"Tip error: {str(e)}"
+        print(error_msg)
+        return jsonify({"reply": "Tip failed. Try again."}), 500
 
 @app.route('/confirm_tx', methods=['POST'])
 def confirm_tx():
@@ -131,42 +114,49 @@ def confirm_tx():
         tx_hash = data.get('tx_hash', '')
         user_wallet = data.get('wallet', '')
         
-        if not tx_hash or not user_wallet:
-            return jsonify({"error": "Missing tx_hash or wallet"}), 400
-
-        full_story = user_sessions.get(user_wallet, {}).get("full_story", "")
+        # Get stored story or create default
+        story_data = user_sessions.get(user_wallet, {})
+        full_story = story_data.get("full_story", "Thank you for your support! Here's your full magical adventure story.")
         
-        if not full_story:
-            full_story = "Thank you for your tip! Here's your full magical story about adventure and wonder in distant lands."
-
         return jsonify({
-            "reply": "🎉 Tip received! Full story unlocked!",
+            "reply": "🎉 Payment confirmed! Full story unlocked!",
             "written": full_story,
             "explorer": f"https://testnet.arcscan.app/tx/{tx_hash}"
         })
+        
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        error_msg = f"Confirm error: {str(e)}"
+        print(error_msg)
+        return jsonify({"error": "Confirmation failed"}), 500
 
-@app.route('/')
-def home():
-    return jsonify({"message": "AI Story Teller API is running!"})
-
-@app.route('/health')
+@app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "healthy", "message": "Server is working!"})
 
-# Vercel serverless handler
+# Vercel serverless handler - SIMPLE VERSION
 def handler(request, context):
     try:
-        with app.app_context():
-            return app(request, context)
+        # Convert Vercel request to Flask response
+        with app.test_request_context(
+            path=request['path'],
+            method=request['method'],
+            headers=request['headers'],
+            json=request.get('body')
+        ):
+            response = app.full_dispatch_request()
+            return {
+                'statusCode': response.status_code,
+                'headers': dict(response.headers),
+                'body': response.get_data(as_text=True)
+            }
     except Exception as e:
+        print(f"Handler error: {e}")
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json'},
-            'body': json.dumps({'error': str(e), 'message': 'Server error'})
+            'body': json.dumps({'error': 'Internal server error'})
         }
 
-# For local development
+# Local development
 if __name__ == '__main__':
     app.run(debug=True)
