@@ -15,7 +15,7 @@ ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 AIML_API_KEY = os.getenv("AIML_API_KEY")
 
 # Tera Wallet
-CREATOR_ADDRESS = "0x2de592b3951807dfb72931596d11fe93b753881e"
+CREATOR_ADDRESS = "0xc566bc1e529a71ece83145f98aac3c818d1311b3"
 
 # Arc Testnet
 w3 = Web3(Web3.HTTPProvider("https://rpc.testnet.arc.network"))
